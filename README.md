@@ -1,14 +1,14 @@
-#ORB_SLAM3_vision3d
+# ORB_SLAM3_vision3d
 
 本仓库主要folked from (https://github.com/UZ-SLAMLab/ORB_SLAM3)，主要对其进行代码注释，与bug修复。
 
-###主要参与的工作人员
+### 主要参与的工作人员
 
 本工程主要由公众号「3D视觉工坊」的嘉宾及博主一起协同完成，仍在持续完善中。
 
 
 
-###Other things
+### Other things
 
 由于我们在学习过程中，难免会借鉴参考其他优秀的博客与工程，如有不当之处，还请批评指正。
 
