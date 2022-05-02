@@ -18,7 +18,8 @@
 
 #include "ImuTypes.h"
 #include<iostream>
-
+#include <fstream>
+using namespace std;
 namespace ORB_SLAM3
 {
 
@@ -152,27 +153,31 @@ cv::Mat InverseRightJacobianSO3(const cv::Mat &v)
 
 IntegratedRotation::IntegratedRotation(const cv::Point3f &angVel, const Bias &imuBias, const float &time):
     deltaT(time)
-{
+{   
+    //单位时间内的旋转 ，xyz构成旋转向量 角速度乘时间
     const float x = (angVel.x-imuBias.bwx)*time;
     const float y = (angVel.y-imuBias.bwy)*time;
     const float z = (angVel.z-imuBias.bwz)*time;
 
     cv::Mat I = cv::Mat::eye(3,3,CV_32F);
-
+    
+    //计算旋转矩阵的模值
     const float d2 = x*x+y*y+z*z;
     const float d = sqrt(d2);
 
     cv::Mat W = (cv::Mat_<float>(3,3) << 0, -z, y,
                  z, 0, -x,
                  -y,  x, 0);
-    if(d<eps)
+    if(d<eps)  //若旋转较小，旋转向量到旋转矩阵的变换采用指数一阶近似
     {
-        deltaR = I + W;
+        deltaR = I + W; //forster 经典预积分论文公式（4）
+        //小量时，右扰动 Jr = I
         rightJ = cv::Mat::eye(3,3,CV_32F);
     }
     else
-    {
+    {   //forster 经典预积分论文公式（3）
         deltaR = I + W*sin(d)/d + W*W*(1.0f-cos(d))/d2;
+        //forster 经典预积分论文公式（8）
         rightJ = I - W*(1.0f-cos(d))/d2 + W*W*(d-sin(d))/(d2*d);
     }
 }
@@ -251,26 +256,34 @@ void Preintegrated::Reintegrate()
     for(size_t i=0;i<aux.size();i++)
         IntegrateNewMeasurement(aux[i].a,aux[i].w,aux[i].t);
 }
-
+ 
+//IMU预积分
+/*********************************
+ * acceleration:加速度
+ * angVel：角速度
+ * dt：两个IMU数据之间的时间差
+*********************************/
 void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, const cv::Point3f &angVel, const float &dt)
 {
+    //存储IMU加速度、角速度和时间
     mvMeasurements.push_back(integrable(acceleration,angVel,dt));
 
-    // Position is updated firstly, as it depends on previously computed velocity and rotation.
-    // Velocity is updated secondly, as it depends on previously computed rotation.
-    // Rotation is the last to be updated.
 
     //Matrices to compute covariance
+    //计算协方差 参考Forster论文公式（62）
     cv::Mat A = cv::Mat::eye(9,9,CV_32F);
     cv::Mat B = cv::Mat::zeros(9,6,CV_32F);
 
+    // 考虑偏置后的加速度、角速度
     cv::Mat acc = (cv::Mat_<float>(3,1) << acceleration.x-b.bax,acceleration.y-b.bay, acceleration.z-b.baz);
     cv::Mat accW = (cv::Mat_<float>(3,1) << angVel.x-b.bwx, angVel.y-b.bwy, angVel.z-b.bwz);
 
+    //计算平均加速度、角速度
     avgA = (dT*avgA + dR*acc*dt)/(dT+dt);
     avgW = (dT*avgW + accW*dt)/(dT+dt);
 
     // Update delta position dP and velocity dV (rely on no-updated delta rotation)
+    //更新dp和dv（利用还未更新的dR先更新dV和dP）
     dP = dP + dV*dt + 0.5f*dR*acc*dt*dt;
     dV = dV + dR*acc*dt;
 
@@ -292,20 +305,23 @@ void Preintegrated::IntegrateNewMeasurement(const cv::Point3f &acceleration, con
 
     // Update delta rotation
     IntegratedRotation dRi(angVel,b,dt);
-    dR = NormalizeRotation(dR*dRi.deltaR);
+    dR = NormalizeRotation(dR*dRi.deltaR);// 强行归一化使其符合旋转矩阵的格式
 
     // Compute rotation parts of matrices A and B
     A.rowRange(0,3).colRange(0,3) = dRi.deltaR.t();
     B.rowRange(0,3).colRange(0,3) = dRi.rightJ*dt;
 
     // Update covariance
+    //更新协方差，frost经典预积分论文的第63个公式
     C.rowRange(0,9).colRange(0,9) = A*C.rowRange(0,9).colRange(0,9)*A.t() + B*Nga*B.t();
+    // 这一部分最开始是0矩阵，随着积分次数增加，每次都加上随机游走，偏置的信息矩阵
     C.rowRange(9,15).colRange(9,15) = C.rowRange(9,15).colRange(9,15) + NgaWalk;
 
     // Update rotation jacobian wrt bias correction
     JRg = dRi.deltaR.t()*JRg - dRi.rightJ*dt;
 
     // Total integrated time
+    //更新总时间
     dT += dt;
 }
 

@@ -31,7 +31,13 @@
 
 namespace ORB_SLAM3
 {
-
+//LoopClosing类构造函数
+/********************************************************
+    pAtlas：Atlas类指针
+    pDB：KeyFrameDatabase类型指针
+    pVoc：ORBVocabulary类指针
+    bFixScale :输入为true
+********************************************************/
 LoopClosing::LoopClosing(Atlas *pAtlas, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, const bool bFixScale):
     mbResetRequested(false), mbResetActiveMapRequested(false), mbFinishRequested(false), mbFinished(true), mpAtlas(pAtlas),
     mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpMatchedKF(NULL), mLastLoopKFid(0), mbRunningGBA(false), mbFinishedGBA(true),
@@ -61,6 +67,8 @@ void LoopClosing::Run()
     {
         //NEW LOOP AND MERGE DETECTION ALGORITHM
         //----------------------------
+        //判断mlpLoopKeyFrameQueue列表中是否存在待处理的关键帧
+        //关键帧从LocalMapping线程中传入
         if(CheckNewKeyFrames())
         {
             if(mpLastCurrentKF)
@@ -68,8 +76,12 @@ void LoopClosing::Run()
                 mpLastCurrentKF->mvpLoopCandKFs.clear();
                 mpLastCurrentKF->mvpMergeCandKFs.clear();
             }
+
+            // 对当前关键帧和关键帧数据库进行对比检测，判断是否存在回环或地图融合
             if(NewDetectCommonRegions())
             {
+                //mbMergeDetected为true表示检测到了融合，即当前关键帧与其他地图存在关联，
+                // 要进行地图融合
                 if(mbMergeDetected)
                 {
                     if ((mpTracker->mSensor==System::IMU_MONOCULAR ||mpTracker->mSensor==System::IMU_STEREO) &&
@@ -92,7 +104,8 @@ void LoopClosing::Run()
 
                         if(mpCurrentKF->GetMap()->IsInertial() && mpMergeMatchedKF->GetMap()->IsInertial())
                         {
-                            if(mSold_new.scale()<0.90||mSold_new.scale()>1.1){
+                            if(mSold_new.scale()<0.90||mSold_new.scale()>1.1)
+                            {
                                 mpMergeLastCurrentKF->SetErase();
                                 mpMergeMatchedKF->SetErase();
                                 mnMergeNumCoincidences = 0;
@@ -158,6 +171,9 @@ void LoopClosing::Run()
 
                 }
 
+
+
+                // mbLoopDetected为true表示检测到回环，进行会换矫正
                 if(mbLoopDetected)
                 {
                     vdPR_CurrentTime.push_back(mpCurrentKF->mTimeStamp);
@@ -220,12 +236,16 @@ void LoopClosing::Run()
                 }
 
             }
+
+
+            
             mpLastCurrentKF = mpCurrentKF;
         }
 
         ResetIfRequested();
 
-        if(CheckFinish()){
+        if(CheckFinish())
+        {
             // cout << "LC: Finish requested" << endl;
             break;
         }
@@ -260,19 +280,34 @@ bool LoopClosing::CheckNewKeyFrames()
     return(!mlpLoopKeyFrameQueue.empty());
 }
 
+
+/**************************回环检测********************************
+ * 处理mlpLoopKeyFrameQueue列表中的关键帧（从LocalMapping线程中存入）
+ * 更改回环检测标志位mbLoopDetected和融合检测标志位mbMergeDetected
+*****************************************************************/
 bool LoopClosing::NewDetectCommonRegions()
 {
+    // 初始操作
     {
         unique_lock<mutex> lock(mMutexLoopQueue);
+
+        // 取出mlpLoopKeyFrameQueue的第一个关键帧作为当前关键帧
         mpCurrentKF = mlpLoopKeyFrameQueue.front();
+
         mlpLoopKeyFrameQueue.pop_front();
         // Avoid that a keyframe can be erased while it is being process by this thread
+        // 将当前关键帧的mbNotErase = true，防止此关键帧在别的线程中被删除
         mpCurrentKF->SetNotErase();
+        // 当前关键帧进行了回环检测
         mpCurrentKF->mbCurrentPlaceRecognition = true;
-
+        
+        // 获得当前关键帧的地图
         mpLastMap = mpCurrentKF->GetMap();
     }
 
+
+    // IMU模式下如果还没进行第二次初始化则不进行回环检测
+    // 添加当前关键帧至关键帧数据库
     if(mpLastMap->IsInertial() && !mpLastMap->GetIniertialBA1())
     {
         mpKeyFrameDB->add(mpCurrentKF);
@@ -280,6 +315,9 @@ bool LoopClosing::NewDetectCommonRegions()
         return false;
     }
 
+
+    // 双目条件下，若当前地图的关键帧数量小于5,则不进行回环检测
+    // 添加当前关键帧至关键帧数据库
     if(mpTracker->mSensor == System::STEREO && mpLastMap->GetAllKeyFrames().size() < 5) //12
     {
         mpKeyFrameDB->add(mpCurrentKF);
@@ -287,6 +325,9 @@ bool LoopClosing::NewDetectCommonRegions()
         return false;
     }
 
+
+    // 若当前地图的关键帧数量小于12则不进行回环检测
+    // 添加当前关键帧至关键帧数据库
     if(mpLastMap->GetAllKeyFrames().size() < 12)
     {
         mpKeyFrameDB->add(mpCurrentKF);
@@ -296,9 +337,11 @@ bool LoopClosing::NewDetectCommonRegions()
 
     //Check the last candidates with geometric validation
     // Loop candidates
+    // 回环标志位
     bool bLoopDetectedInKF = false;
     bool bCheckSpatial = false;
 
+    // mnLoopNumCoincidences表示回环成功的次数，初始化时，mnLoopNumCoincidences被初始为0
     if(mnLoopNumCoincidences > 0)
     {
         bCheckSpatial = true;
@@ -366,8 +409,11 @@ bool LoopClosing::NewDetectCommonRegions()
         }
     }
 
+
     //Merge candidates
+    // 融合标志位
     bool bMergeDetectedInKF = false;
+    // mnMergeNumCoincidences表示融合成功的次数，初始化时，mnMergeNumCoincidences被初始为0
     if(mnMergeNumCoincidences > 0)
     {
         // Find from the last KF candidates
@@ -428,6 +474,9 @@ bool LoopClosing::NewDetectCommonRegions()
         }
     }
 
+
+    // 如果成功检测到融合或回环，则返回true
+    // 添加当前关键帧至关键帧数据库
     if(mbMergeDetected || mbLoopDetected)
     {
         //f_time_pr << "Geo" << " " << timeGeoKF_ms.count() << endl;
@@ -457,6 +506,7 @@ bool LoopClosing::NewDetectCommonRegions()
     // Extract candidates from the bag of words
     vector<KeyFrame*> vpMergeBowCand, vpLoopBowCand;
     //cout << "LC: bMergeDetectedInKF: " << bMergeDetectedInKF << "   bLoopDetectedInKF: " << bLoopDetectedInKF << endl;
+    // 若当前关键帧没有被检测到回环或融合，则寻找当前关键帧的三个回环候选帧和融合候选帧
     if(!bMergeDetectedInKF || !bLoopDetectedInKF)
     {
         // Search in BoW
@@ -471,33 +521,45 @@ bool LoopClosing::NewDetectCommonRegions()
     std::chrono::monotonic_clock::time_point timeStartGeoBoW = std::chrono::monotonic_clock::now();
 #endif*/
 
+
+    // 若当前关键帧没有被检测到回环，且回环候选帧不为空
     if(!bLoopDetectedInKF && !vpLoopBowCand.empty())
     {
+        //对回环候选帧再进行检测，判断是否发生回环
         mbLoopDetected = DetectCommonRegionsFromBoW(vpLoopBowCand, mpLoopMatchedKF, mpLoopLastCurrentKF, mg2oLoopSlw, mnLoopNumCoincidences, mvpLoopMPs, mvpLoopMatchedMPs);
     }
     // Merge candidates
 
     //cout << "LC: Find BoW candidates" << endl;
 
+    // 若当前关键帧没有被检测到融合，且融合候选帧不为空
+    // 对应论文VI MAP MERGING AND LOOP CLOSING部分的2-5
     if(!bMergeDetectedInKF && !vpMergeBowCand.empty())
     {
+        //对融合候选帧再进行检测，判断是否发生融合
         mbMergeDetected = DetectCommonRegionsFromBoW(vpMergeBowCand, mpMergeMatchedKF, mpMergeLastCurrentKF, mg2oMergeSlw, mnMergeNumCoincidences, mvpMergeMPs, mvpMergeMatchedMPs);
     }
 
     //cout << "LC: add to KFDB" << endl;
+    // 将当前关键帧添加到关键帧数据库中
     mpKeyFrameDB->add(mpCurrentKF);
 
+    // 如果成功检测到融合或回环，则返回true
     if(mbMergeDetected || mbLoopDetected)
     {
         return true;
     }
 
     //cout << "LC: erase KF" << endl;
+    // 设置当前关键帧不固定，可以被其他线程移除
     mpCurrentKF->SetErase();
     mpCurrentKF->mbCurrentPlaceRecognition = false;
 
     return false;
 }
+
+
+
 
 bool LoopClosing::DetectAndReffineSim3FromLastKF(KeyFrame* pCurrentKF, KeyFrame* pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches,
                                                  std::vector<MapPoint*> &vpMPs, std::vector<MapPoint*> &vpMatchedMPs)
@@ -554,6 +616,17 @@ bool LoopClosing::DetectAndReffineSim3FromLastKF(KeyFrame* pCurrentKF, KeyFrame*
     return false;
 }
 
+
+
+/***************利用选取的候选帧再次判断是否发生回环/融合*****************************
+ * vpBowCand：回环候选帧/融合候选帧
+ * pMatchedKF2：等待输出的匹配成功的候选帧
+ * pLastCurrentKF:
+ * g2oScw:  等待输出的候选关键帧到当前关键帧的位姿变换
+ * nNumCoincidences：成功几何验证的帧数，超过3就认为几何验证成功，不超过继续进行时序验证
+ * vpMPs：等待输出的地图点集合
+ * vpMatchedMPs：匹配成功的地图点
+******************************************************************************/
 bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame*> &vpBowCand, KeyFrame* &pMatchedKF2, KeyFrame* &pLastCurrentKF, g2o::Sim3 &g2oScw,
                                              int &nNumCoincidences, std::vector<MapPoint*> &vpMPs, std::vector<MapPoint*> &vpMatchedMPs)
 {
@@ -899,6 +972,13 @@ bool LoopClosing::DetectCommonRegionsFromBoW(std::vector<KeyFrame*> &vpBowCand, 
     }
     return false;
 }
+
+
+
+
+
+
+
 
 bool LoopClosing::DetectCommonRegionsFromLastKF(KeyFrame* pCurrentKF, KeyFrame* pMatchedKF, g2o::Sim3 &gScw, int &nNumProjMatches,
                                                 std::vector<MapPoint*> &vpMPs, std::vector<MapPoint*> &vpMatchedMPs)
@@ -1922,7 +2002,8 @@ void LoopClosing::printReprojectionError(set<KeyFrame*> &spLocalWindowKFs, KeyFr
             cv::Point2f reproj_p;
             float u, v;
             bool bIsInImage = pKFi->ProjectPointUnDistort(pMPij, reproj_p, u, v);
-            if(bIsInImage){
+            if(bIsInImage)
+            {
                 //cout << "Reproj in the image" << endl;
                 cv::circle(img_i, point_img.pt, 1/*point_img.octave*/, cv::Scalar(0, 255, 0));
                 cv::line(img_i, point_img.pt, reproj_p, cv::Scalar(0, 0, 255));
@@ -2018,7 +2099,8 @@ void LoopClosing::MergeLocal2()
 
     const int numKFnew=pCurrentMap->KeyFramesInMap();
 
-    if((mpTracker->mSensor==System::IMU_MONOCULAR || mpTracker->mSensor==System::IMU_STEREO)&& !pCurrentMap->GetIniertialBA2()){
+    if((mpTracker->mSensor==System::IMU_MONOCULAR || mpTracker->mSensor==System::IMU_STEREO)&& !pCurrentMap->GetIniertialBA2())
+    {
         // Map is not completly initialized
         Eigen::Vector3d bg, ba;
         bg << 0., 0., 0.;
@@ -2202,7 +2284,8 @@ void LoopClosing::MergeLocal2()
         cout << "BAD ESSENTIAL GRAPH 4!!" << endl;
 
     // TODO Check: If new map is too small, we suppose that not informaiton can be propagated from new to old map
-    if (numKFnew<10){
+    if (numKFnew<10)
+    {
         mpLocalMapper->Release();
         return;
     }
@@ -2500,7 +2583,8 @@ void LoopClosing::RunGlobalBundleAdjustment(Map* pActiveMap, unsigned long nLoop
                         pChild->mTcwGBA = Tchildc*pKF->mTcwGBA;//*Tcorc*pKF->mTcwGBA;
 
                         cv::Mat Rcor = pChild->mTcwGBA.rowRange(0,3).colRange(0,3).t()*pChild->GetRotation();
-                        if(!pChild->GetVelocity().empty()){
+                        if(!pChild->GetVelocity().empty())
+                        {
                             //cout << "Child velocity: " << pChild->GetVelocity() << endl;
                             pChild->mVwbGBA = Rcor*pChild->GetVelocity();
                         }

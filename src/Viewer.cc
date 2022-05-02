@@ -24,16 +24,36 @@
 
 namespace ORB_SLAM3
 {
-
+//Viewer类构造函数
+/********************************************************
+    pSystem： System类当前SLAM系统
+    pFrameDrawer：FrameDrawer类指针
+    pMapDrawer:MapDrawer类指针
+    pTracking：Tracking线程指针
+    strSettingPath：标定文件
+********************************************************/
+/****************初始化*******************************
+    both： 初始化为false
+    mpSystem：System类当前SLAM系统
+    mpFrameDrawer:FrameDrawer类指针
+    mpMapDrawer：MapDrawer类指针
+    mpTracker：Tracking线程指针
+    mbFinishRequested：初始化为false
+    mbFinished:初始化为true
+    mbStopped：初始化为true
+    mbStopRequested:初始化为false
+********************************************************/
 Viewer::Viewer(System* pSystem, FrameDrawer *pFrameDrawer, MapDrawer *pMapDrawer, Tracking *pTracking, const string &strSettingPath):
-    both(false), mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer), mpTracker(pTracking),
-    mbFinishRequested(false), mbFinished(true), mbStopped(true), mbStopRequested(false)
+    both(false), mpSystem(pSystem), mpFrameDrawer(pFrameDrawer),mpMapDrawer(pMapDrawer),
+    mpTracker(pTracking),mbFinishRequested(false), mbFinished(true), mbStopped(true),
+    mbStopRequested(false)
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
-    float fps = fSettings["Camera.fps"];
+    float fps = fSettings["Camera.fps"];//图像帧速
     if(fps<1)
         fps=30;
+    //1/fps in ms
     mT = 1e3/fps;
 
     mImageWidth = fSettings["Camera.width"];
@@ -57,9 +77,13 @@ void Viewer::Run()
     mbFinished = false;
     mbStopped = false;
 
+    // 创建显示相机位姿的窗口
+    // 参数1：窗口名称
+    // 参数2,参数3：宽，高
     pangolin::CreateWindowAndBind("ORB-SLAM3: Map Viewer",1024,768);
 
     // 3D Mouse handler requires depth testing to be enabled
+    // 深度检测
     glEnable(GL_DEPTH_TEST);
 
     // Issue specific OpenGl we might need
@@ -81,22 +105,40 @@ void Viewer::Run()
     pangolin::Var<bool> menuStep("menu.Step",false,false);
 
     // Define Camera Render Object (for view / scene browsing)
+    /*****************************定义相机对象************************
+     * ProjectionMatrix：构建观察相机的内参系数
+     *                   1024,768：相机视野的宽和高
+     *                   mViewpointF,mViewpointF:应该对应的是相机的fx,fy
+     *                   512,389：应该对应的是cx,cy
+     *                   0.1,1000：相机的最近和最远视野   
+     * ModelViewLookAt：相机、视点的初始坐标
+     *                  mViewpointX,mViewpointY,mViewpointZ：相机的初始坐标
+     *                  0,0,0：相机光轴朝向
+     *                  0.0,-1.0, 0.0：相机y轴朝下
+     * *************************************************************/
     pangolin::OpenGlRenderState s_cam(
                 pangolin::ProjectionMatrix(1024,768,mViewpointF,mViewpointF,512,389,0.1,1000),
                 pangolin::ModelViewLookAt(mViewpointX,mViewpointY,mViewpointZ, 0,0,0,0.0,-1.0, 0.0)
                 );
 
+    // 创建视角窗口
     // Add named OpenGL viewport to window and provide 3D Handler
     pangolin::View& d_cam = pangolin::CreateDisplay()
             .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f/768.0f)
             .SetHandler(new pangolin::Handler3D(s_cam));
+    
 
+    // 相机到世界坐标系的变换，参考图像帧到世界坐标系的变换
     pangolin::OpenGlMatrix Twc, Twr;
-    Twc.SetIdentity();
+    // 设置相机到世界坐标系的变换为单位阵
+    Twc.SetIdentity();  
+    // 设置原点位置：在z轴上以g为方向
     pangolin::OpenGlMatrix Ow; // Oriented with g in the z axis
     Ow.SetIdentity();
+    // Z轴上以g为方向，但x,y是与相机方向一致
     pangolin::OpenGlMatrix Twwp; // Oriented with g in the z axis, but y and x from camera
     Twwp.SetIdentity();
+    // 创建窗口
     cv::namedWindow("ORB-SLAM3: Current Frame");
 
     bool bFollow = true;
@@ -104,6 +146,7 @@ void Viewer::Run()
     bool bStepByStep = false;
     bool bCameraView = true;
 
+    // 如果没有IMU，则menuShowGraph标志位为真
     if(mpTracker->mSensor == mpSystem->MONOCULAR || mpTracker->mSensor == mpSystem->STEREO || mpTracker->mSensor == mpSystem->RGBD)
     {
         menuShowGraph = true;
@@ -113,6 +156,8 @@ void Viewer::Run()
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        // Twc存储的是以列优先的16个数值，表示相机的旋转、平移
+        // 在MapDrawer.cc中进行存储Twc,Ow以及Twwp
         mpMapDrawer->GetCurrentOpenGLCameraMatrix(Twc,Ow,Twwp);
 
         if(mbStopTrack)
@@ -123,7 +168,7 @@ void Viewer::Run()
 
         if(menuFollowCamera && bFollow)
         {
-            if(bCameraView)
+            if(bCameraView)  //初始化为true，表示相机跟随Twc的位置设置
                 s_cam.Follow(Twc);
             else
                 s_cam.Follow(Ow);
@@ -149,7 +194,7 @@ void Viewer::Run()
             bFollow = false;
         }
 
-        if(menuCamView)
+        if(menuCamView)  //初始化为false
         {
             menuCamView = false;
             bCameraView = true;
@@ -205,10 +250,12 @@ void Viewer::Run()
             menuStep = false;
         }
 
-
+        // 激活
         d_cam.Activate(s_cam);
         glClearColor(1.0f,1.0f,1.0f,1.0f);
+        // 画出当前相机在地图中的位姿，相机到世界坐标系的变换
         mpMapDrawer->DrawCurrentCamera(Twc);
+
         if(menuShowKeyFrames || menuShowGraph || menuShowInertialGraph)
             mpMapDrawer->DrawKeyFrames(menuShowKeyFrames,menuShowGraph, menuShowInertialGraph);
         if(menuShowPoints)
@@ -261,6 +308,9 @@ void Viewer::Run()
 
     SetFinish();
 }
+
+
+
 
 void Viewer::RequestFinish()
 {

@@ -18,7 +18,8 @@
 
 #include "OptimizableTypes.h"
 
-namespace ORB_SLAM3 {
+namespace ORB_SLAM3 
+{
     bool EdgeSE3ProjectXYZOnlyPose::read(std::istream& is){
         for (int i=0; i<2; i++){
             is >> _measurement[i];
@@ -45,8 +46,9 @@ namespace ORB_SLAM3 {
         return os.good();
     }
 
-
-    void EdgeSE3ProjectXYZOnlyPose::linearizeOplus() {
+    //3D-2D重投影误差的雅克比矩阵
+    void EdgeSE3ProjectXYZOnlyPose::linearizeOplus() 
+    {
         g2o::VertexSE3Expmap * vi = static_cast<g2o::VertexSE3Expmap *>(_vertices[0]);
         Eigen::Vector3d xyz_trans = vi->estimate().map(Xw);
 
@@ -106,6 +108,7 @@ namespace ORB_SLAM3 {
         _jacobianOplusXi = -pCamera->projectJac(X_r) * mTrl.rotation().toRotationMatrix() * SE3deriv;
     }
 
+    //3D地图点-相机位姿之间边的构造函数
     EdgeSE3ProjectXYZ::EdgeSE3ProjectXYZ() : BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>() {
     }
 
@@ -115,7 +118,7 @@ namespace ORB_SLAM3 {
         }
         for (int i=0; i<2; i++)
             for (int j=i; j<2; j++) {
-                is >> information()(i,j);
+                is >> information()(i,j);  //信息矩阵
                 if (i!=j)
                     information()(j,i)=information()(i,j);
             }
@@ -135,27 +138,36 @@ namespace ORB_SLAM3 {
         return os.good();
     }
 
-
-    void EdgeSE3ProjectXYZ::linearizeOplus() {
+    //3D-2D 重投影误差的雅克比矩阵
+    void EdgeSE3ProjectXYZ::linearizeOplus() 
+    {   
+        //6维位姿顶点
         g2o::VertexSE3Expmap * vj = static_cast<g2o::VertexSE3Expmap *>(_vertices[1]);
+        //EXP（位姿估计值）
         g2o::SE3Quat T(vj->estimate());
+        //3D地图点顶点
         g2o::VertexSBAPointXYZ* vi = static_cast<g2o::VertexSBAPointXYZ*>(_vertices[0]);
+        //3D地图点的估计值
         Eigen::Vector3d xyz = vi->estimate();
+        //世界坐标系转为当前图像帧的相机坐标系 RP+t
         Eigen::Vector3d xyz_trans = T.map(xyz);
 
         double x = xyz_trans[0];
         double y = xyz_trans[1];
         double z = xyz_trans[2];
 
+        //误差对相机坐标系下的地图点的雅克比
         auto projectJac = -pCamera->projectJac(xyz_trans);
 
+        //误差对3D地图点的雅克比
         _jacobianOplusXi =  projectJac * T.rotation().toRotationMatrix();
 
         Eigen::Matrix<double,3,6> SE3deriv;
         SE3deriv << 0.f, z,   -y, 1.f, 0.f, 0.f,
                 -z , 0.f, x, 0.f, 1.f, 0.f,
                 y ,  -x , 0.f, 0.f, 0.f, 1.f;
-
+        
+        //误差对相机位姿的雅克比
         _jacobianOplusXj = projectJac * SE3deriv;
     }
 

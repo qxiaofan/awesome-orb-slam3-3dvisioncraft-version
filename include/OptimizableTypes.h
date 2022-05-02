@@ -28,6 +28,12 @@
 
 
 namespace ORB_SLAM3 {
+
+/******************只优化位姿的边***********************
+ * 类型：一元边，一个顶点
+ * 顶点类型：g2o::VertexSE3Expmap 相机位姿
+ * 量测：二维向量，图像帧中的特征点坐标
+ ****************************************/
 class  EdgeSE3ProjectXYZOnlyPose: public  g2o::BaseUnaryEdge<2, Eigen::Vector2d, g2o::VertexSE3Expmap>{
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -86,6 +92,13 @@ public:
     g2o::SE3Quat mTrl;
 };
 
+/****************定义连接地图点和相机位姿的边******************
+ * 类型：二元边，即两个顶点
+ * 顶点类型: 1、g2o::VertexSBAPointXYZ 3D点（在构造顶点时构造了顶点坐标更新方式）
+ *          2、g2o::VertexSE3Expmap  6维李代数（在构造顶点时构造了顶点坐标更新方式）
+ *                                  注意：SLAM14讲中定义的是平移在前，旋转在后，代码中是旋转在前，平移在后
+ * 量测值：图像特征点坐标，二维，Eigen::Vector2d类型
+**********************************************************/
 class  EdgeSE3ProjectXYZ: public  g2o::BaseBinaryEdge<2, Eigen::Vector2d, g2o::VertexSBAPointXYZ, g2o::VertexSE3Expmap>{
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -96,7 +109,9 @@ public:
 
     bool write(std::ostream& os) const;
 
-    void computeError()  {
+    //重投影误差
+    void computeError()  
+    {
         const g2o::VertexSE3Expmap* v1 = static_cast<const g2o::VertexSE3Expmap*>(_vertices[1]);
         const g2o::VertexSBAPointXYZ* v2 = static_cast<const g2o::VertexSBAPointXYZ*>(_vertices[0]);
         Eigen::Vector2d obs(_measurement);

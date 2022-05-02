@@ -1065,6 +1065,12 @@ namespace ORB_SLAM3
             computeOrbDescriptor(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
     }
 
+    /**************计算图像ORB特征点**************************
+        输入：_image 原始灰度图
+             _mask 掩膜，mask位置不需要计算描述子，程序中为空
+        输出：_keypoints   存储特征点关键点的向量
+             _descriptors  存储特征点描述子的矩阵
+    ********************************************************/
     int ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPoint>& _keypoints,
                                   OutputArray _descriptors, std::vector<int> &vLappingArea)
     {

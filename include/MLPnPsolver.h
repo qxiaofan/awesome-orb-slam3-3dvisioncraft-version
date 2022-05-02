@@ -55,8 +55,10 @@
 #include<Eigen/Dense>
 #include<Eigen/Sparse>
 
-namespace ORB_SLAM3{
-    class MLPnPsolver {
+namespace ORB_SLAM3
+{
+    class MLPnPsolver 
+    {
     public:
         MLPnPsolver(const Frame &F, const vector<MapPoint*> &vpMapPointMatches);
 
@@ -88,6 +90,7 @@ namespace ORB_SLAM3{
         typedef Eigen::Matrix3d cov3_mat_t;
 
         /** An array of 3D covariance matrices */
+        //Eigen::Matrix3d = cov3_mat_t
         typedef std::vector<cov3_mat_t, Eigen::aligned_allocator<cov3_mat_t> >
                 cov3_mats_t;
 

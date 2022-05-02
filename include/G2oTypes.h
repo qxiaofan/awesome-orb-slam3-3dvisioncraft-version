@@ -389,6 +389,7 @@ class EdgeMonoOnlyPose : public g2o::BaseUnaryEdge<2,Eigen::Vector2d,VertexPose>
 public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
+    //构造此边：输入3D地图点坐标
     EdgeMonoOnlyPose(const cv::Mat &Xw_, int cam_idx_=0):Xw(Converter::toVector3d(Xw_)),
         cam_idx(cam_idx_){}
 
@@ -717,6 +718,8 @@ public:
                 eigs[i]=0;
         H = es.eigenvectors()*eigs.asDiagonal()*es.eigenvectors().transpose();
     }
+
+    
     ConstraintPoseImu(const cv::Mat &Rwb_, const cv::Mat &twb_, const cv::Mat &vwb_,
                        const IMU::Bias &b, const cv::Mat &H_)
     {

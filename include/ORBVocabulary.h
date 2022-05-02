@@ -26,6 +26,13 @@
 namespace ORB_SLAM3
 {
 
+/******************************************************************
+ * typedef：在任何声明变量的语句前加上typedef后，原来的变量都变成了一种类型
+ * ORBVocabulary指代DBoW2::TemplatedVocabulary<DBoW2::FORB::TDescriptor, DBoW2::FORB>类型 
+ * DBoW2::TemplatedVocabulary是一个字典模板类
+ * DBoW2::FORB::TDescriptor  描述子（实际是cv::Mat类）
+ * DBoW2::FORB 定义了对描述子操作的函数，主要有计算描述子集合中值的meanValue(),计算描述子距离的distance()
+******************************************************************/
 typedef DBoW2::TemplatedVocabulary<DBoW2::FORB::TDescriptor, DBoW2::FORB>
   ORBVocabulary;
 

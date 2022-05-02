@@ -4,7 +4,21 @@
 
 ### 主要参与的工作人员
 
-本工程主要由公众号「3D视觉工坊」的嘉宾及博主一起协同完成，仍在持续完善中。
+本工程主要由公众号「3D视觉工坊」的嘉宾宏宇博士及其他嘉宾一起协同完成，仍在持续完善中。
+
+
+
+### 说明
+
+Two ROS interfaces Mono_inertial and Stereo_inertial were added to the ORB-SLAM3. Modified the loading vocabulary in a faster binary way.
+
+增加了两个ROS接口，单目IMU和双目IMU，替换了词典为二进制格式，加载速度更快。
+
+Command
+
+Mono_inertial: rosrun ORB_SLAM3 Mono_inertial /YOUR_PATH/ORBvoc.bin /YOUR_PATH/EuRoC.yaml
+
+Stereo_inertial: rosrun ORB_SLAM3 Stereo_inertial /YOUR_PATH/ORBvoc.bin /YOUR_PATH/EuRoC.yaml
 
 
 

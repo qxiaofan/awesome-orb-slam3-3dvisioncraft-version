@@ -33,10 +33,21 @@ mbFail(false), mIsInUse(false), mHasTumbnail(false), mbBad(false), mnMapChangeNo
     mThumbnail = static_cast<GLubyte*>(NULL);
 }
 
-Map::Map(int initKFid):mnInitKFid(initKFid), mnMaxKFid(initKFid),mnLastLoopKFid(initKFid), mnBigChangeIdx(0), mIsInUse(false),
-                       mHasTumbnail(false), mbBad(false), mbImuInitialized(false), mpFirstRegionKF(static_cast<KeyFrame*>(NULL)),
-                       mnMapChange(0), mbFail(false), mnMapChangeNotified(0), mbIsInertial(false), mbIMU_BA1(false), mbIMU_BA2(false)
+
+/********************创建地图******************
+ * 输入：创建的地图的第一个关键帧ID
+ * 
+ * mISInUse：初始化为false表示当前地图未加入使用
+ * mbImuInitialized：初始化为false表示IMU初始化未成功
+ * mbIsInertial:初始化为false表示当前系统中没有IMU传感器
+**********************************************/
+Map::Map(int initKFid):
+    mnInitKFid(initKFid), mnMaxKFid(initKFid),mnLastLoopKFid(initKFid), mnBigChangeIdx(0), 
+    mIsInUse(false), mHasTumbnail(false), mbBad(false), mbImuInitialized(false), 
+    mpFirstRegionKF(static_cast<KeyFrame*>(NULL)), mnMapChange(0), mbFail(false), 
+    mnMapChangeNotified(0), mbIsInertial(false), mbIMU_BA1(false), mbIMU_BA2(false)
 {
+    //地图的ID+1,mnId表示地图ID
     mnId=nNextId++;
     mThumbnail = static_cast<GLubyte*>(NULL);
 }

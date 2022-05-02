@@ -29,15 +29,24 @@
 namespace ORB_SLAM3
 {
 
+//构造函数，固定参考帧
+/*************************************
+    ReferenceFrame:参考图像帧
+    sigma：测量误差
+    iterations:RANSAC最大迭代次数
+************************************/
 Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iterations)
 {
     mpCamera = ReferenceFrame.mpCamera;
+    //相机内参
     mK = ReferenceFrame.mK.clone();
 
+    //参考帧的去畸变特征点
     mvKeys1 = ReferenceFrame.mvKeysUn;
 
     mSigma = sigma;
     mSigma2 = sigma*sigma;
+    //最大迭代次数
     mMaxIterations = iterations;
 }
 

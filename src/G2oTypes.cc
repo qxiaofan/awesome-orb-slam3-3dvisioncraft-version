@@ -276,24 +276,29 @@ bool VertexPose::read(std::istream& is)
     const int num_cams = _estimate.Rbc.size();
     for(int idx = 0; idx<num_cams; idx++)
     {
-        for (int i=0; i<3; i++){
+        for (int i=0; i<3; i++)
+        {
             for (int j=0; j<3; j++)
                 is >> Rcw[idx](i,j);
         }
-        for (int i=0; i<3; i++){
+        for (int i=0; i<3; i++)
+        {
             is >> tcw[idx](i);
         }
 
-        for (int i=0; i<3; i++){
+        for (int i=0; i<3; i++)
+        {
             for (int j=0; j<3; j++)
                 is >> Rbc[idx](i,j);
         }
-        for (int i=0; i<3; i++){
+        for (int i=0; i<3; i++)
+        {
             is >> tbc[idx](i);
         }
 
         float nextParam;
-        for(size_t i = 0; i < _estimate.pCamera[idx]->size(); i++){
+        for(size_t i = 0; i < _estimate.pCamera[idx]->size(); i++)
+        {
             is >> nextParam;
             _estimate.pCamera[idx]->setParameter(nextParam,i);
         }
@@ -319,23 +324,28 @@ bool VertexPose::write(std::ostream& os) const
 
     for(int idx = 0; idx<num_cams; idx++)
     {
-        for (int i=0; i<3; i++){
+        for (int i=0; i<3; i++)
+        {
             for (int j=0; j<3; j++)
                 os << Rcw[idx](i,j) << " ";
         }
-        for (int i=0; i<3; i++){
+        for (int i=0; i<3; i++)
+        {
             os << tcw[idx](i) << " ";
         }
 
-        for (int i=0; i<3; i++){
+        for (int i=0; i<3; i++)
+        {
             for (int j=0; j<3; j++)
                 os << Rbc[idx](i,j) << " ";
         }
-        for (int i=0; i<3; i++){
+        for (int i=0; i<3; i++)
+        {
             os << tbc[idx](i) << " ";
         }
 
-        for(size_t i = 0; i < _estimate.pCamera[idx]->size(); i++){
+        for(size_t i = 0; i < _estimate.pCamera[idx]->size(); i++)
+        {
             os << _estimate.pCamera[idx]->getParameter(i) << " ";
         }
     }
@@ -382,8 +392,10 @@ void EdgeMonoOnlyPose::linearizeOplus()
     const Eigen::Vector3d Xb = VPose->estimate().Rbc[cam_idx]*Xc+VPose->estimate().tbc[cam_idx];
     const Eigen::Matrix3d &Rcb = VPose->estimate().Rcb[cam_idx];
 
+    //误差对相机坐标系下的地图点的导数
     Eigen::Matrix<double,2,3> proj_jac = VPose->estimate().pCamera[cam_idx]->projectJac(Xc);
 
+    //IMU坐标系下的地图点对相机位姿的导数
     Eigen::Matrix<double,3,6> SE3deriv;
     double x = Xb(0);
     double y = Xb(1);

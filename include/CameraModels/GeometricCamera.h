@@ -94,7 +94,7 @@ namespace ORB_SLAM3 {
         static long unsigned int nNextId;
 
     protected:
-        std::vector<float> mvParameters;
+        std::vector<float> mvParameters;   //fx,fy,cx,cy
 
         unsigned int mnId;
 

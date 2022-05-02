@@ -104,7 +104,7 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures)
             if(vMatches[i]>=0)
             {
                 cv::line(im,vIniKeys[i].pt,vCurrentKeys[vMatches[i]].pt,
-                        cv::Scalar(0,255,0));
+                        cv::Scalar(0,255,0),3);
             }
         }
         for(vector<pair<cv::Point2f, cv::Point2f> >::iterator it=vTracks.begin(); it!=vTracks.end(); it++)
@@ -315,7 +315,7 @@ cv::Mat FrameDrawer::DrawRightFrame()
             if(vMatches[i]>=0)
             {
                 cv::line(im,vIniKeys[i].pt,vCurrentKeys[vMatches[i]].pt,
-                         cv::Scalar(0,255,0));
+                         cv::Scalar(0,255,0),3);
             }
         }
     }
@@ -407,7 +407,8 @@ void FrameDrawer::Update(Tracking *pTracker)
     pTracker->mImGray.copyTo(mIm);
     mvCurrentKeys=pTracker->mCurrentFrame.mvKeys;
 
-    if(both){
+    if(both)
+    {
         mvCurrentKeysRight = pTracker->mCurrentFrame.mvKeysRight;
         pTracker->mImRight.copyTo(mImRight);
         N = mvCurrentKeys.size() + mvCurrentKeysRight.size();

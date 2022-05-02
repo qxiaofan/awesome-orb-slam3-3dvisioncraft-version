@@ -45,24 +45,46 @@ KeyFrame::KeyFrame():
 
 }
 
+/***************根据图像帧构建关键帧*************************
+ * 输入：F：用于构建关键帧的Frame帧
+ *      pMap:Map类指针
+ *      pKFDB:关键帧数据集
+ * 
+ * 初始化：bImu：初始化为地图的IMU初始化状态，初始化为false
+ *        mnFrameId:作为关键帧的图像的Id
+ *        N:初始化为图像帧的特征点数量
+ *        设置当前关键帧的位姿Tcw为当前图像帧的位姿
+ * mnId：关键帧的Id,从0开始
+ * mnTrackReferenceForFrame：记录当前帧的id，表示此关键帧已经成为了当前帧的局部关键帧了，防止重复添加
+ * ************************************************/
 KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
-    bImu(pMap->isImuInitialized()), mnFrameId(F.mnId),  mTimeStamp(F.mTimeStamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS),
-    mfGridElementWidthInv(F.mfGridElementWidthInv), mfGridElementHeightInv(F.mfGridElementHeightInv),
-    mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0), mnBALocalForMerge(0),
-    mnLoopQuery(0), mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), mnBAGlobalForKF(0), mnPlaceRecognitionQuery(0), mnPlaceRecognitionWords(0), mPlaceRecognitionScore(0),
-    fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy),
-    mbf(F.mbf), mb(F.mb), mThDepth(F.mThDepth), N(F.N), mvKeys(F.mvKeys), mvKeysUn(F.mvKeysUn),
-    mvuRight(F.mvuRight), mvDepth(F.mvDepth), mDescriptors(F.mDescriptors.clone()),
-    mBowVec(F.mBowVec), mFeatVec(F.mFeatVec), mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor),
-    mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
-    mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX),
-    mnMaxY(F.mnMaxY), mK(F.mK), mPrevKF(NULL), mNextKF(NULL), mpImuPreintegrated(F.mpImuPreintegrated),
-    mImuCalib(F.mImuCalib), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB),
-    mpORBvocabulary(F.mpORBvocabulary), mbFirstConnection(true), mpParent(NULL), mDistCoef(F.mDistCoef), mbNotErase(false), mnDataset(F.mnDataset),
-    mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb/2), mpMap(pMap), mbCurrentPlaceRecognition(false), mNameFile(F.mNameFile), mbHasHessian(false), mnMergeCorrectedForKF(0),
+    bImu(pMap->isImuInitialized()), mnFrameId(F.mnId),  mTimeStamp(F.mTimeStamp), 
+    mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS),
+    mfGridElementWidthInv(F.mfGridElementWidthInv), 
+    mfGridElementHeightInv(F.mfGridElementHeightInv),
+    mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), 
+    mnBALocalForKF(0), mnBAFixedForKF(0), mnBALocalForMerge(0),
+    mnLoopQuery(0), mnLoopWords(0), mnRelocQuery(0), mnRelocWords(0), 
+    mnBAGlobalForKF(0), mnPlaceRecognitionQuery(0), mnPlaceRecognitionWords(0),
+    mPlaceRecognitionScore(0), fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), 
+    invfx(F.invfx), invfy(F.invfy), mbf(F.mbf), mb(F.mb), mThDepth(F.mThDepth), 
+    N(F.N), mvKeys(F.mvKeys), mvKeysUn(F.mvKeysUn), mvuRight(F.mvuRight), 
+    mvDepth(F.mvDepth), mDescriptors(F.mDescriptors.clone()),
+    mBowVec(F.mBowVec), mFeatVec(F.mFeatVec), mnScaleLevels(F.mnScaleLevels), 
+    mfScaleFactor(F.mfScaleFactor), mfLogScaleFactor(F.mfLogScaleFactor), 
+    mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
+    mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY),
+    mnMaxX(F.mnMaxX), mnMaxY(F.mnMaxY), mK(F.mK), mPrevKF(NULL), mNextKF(NULL), 
+    mpImuPreintegrated(F.mpImuPreintegrated), mImuCalib(F.mImuCalib), 
+    mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), mpORBvocabulary(F.mpORBvocabulary),
+    mbFirstConnection(true), mpParent(NULL), mDistCoef(F.mDistCoef), mbNotErase(false),
+    mnDataset(F.mnDataset), mbToBeErased(false), mbBad(false), mHalfBaseline(F.mb/2), 
+    mpMap(pMap), mbCurrentPlaceRecognition(false), mNameFile(F.mNameFile), 
+    mbHasHessian(false), mnMergeCorrectedForKF(0),
     mpCamera(F.mpCamera), mpCamera2(F.mpCamera2),
-    mvLeftToRightMatch(F.mvLeftToRightMatch),mvRightToLeftMatch(F.mvRightToLeftMatch),mTlr(F.mTlr.clone()),
-    mvKeysRight(F.mvKeysRight), NLeft(F.Nleft), NRight(F.Nright), mTrl(F.mTrl), mnNumberOfOpt(0)
+    mvLeftToRightMatch(F.mvLeftToRightMatch),mvRightToLeftMatch(F.mvRightToLeftMatch),
+    mTlr(F.mTlr.clone()), mvKeysRight(F.mvKeysRight), NLeft(F.Nleft), NRight(F.Nright),
+    mTrl(F.mTrl), mnNumberOfOpt(0)
 {
 
     imgLeft = F.imgLeft.clone();
@@ -70,15 +92,18 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
 
     mnId=nNextId++;
 
+    // 根据指定的普通帧, 初始化用于加速匹配的网格对象信息; 其实就把每个网格中有的特征点的索引复制过来
     mGrid.resize(mnGridCols);
     if(F.Nleft != -1)  mGridRight.resize(mnGridCols);
     for(int i=0; i<mnGridCols;i++)
     {
         mGrid[i].resize(mnGridRows);
         if(F.Nleft != -1) mGridRight[i].resize(mnGridRows);
-        for(int j=0; j<mnGridRows; j++){
+        for(int j=0; j<mnGridRows; j++)
+        {
             mGrid[i][j] = F.mGrid[i][j];
-            if(F.Nleft != -1){
+            if(F.Nleft != -1)
+        {
                 mGridRight[i][j] = F.mGridRight[i][j];
             }
         }
@@ -119,11 +144,17 @@ void KeyFrame::SetPose(const cv::Mat &Tcw_)
     if (!mImuCalib.Tcb.empty())
         Owb = Rwc*mImuCalib.Tcb.rowRange(0,3).col(3)+Ow;
 
-
+    // 计算当前位姿的逆
     Twc = cv::Mat::eye(4,4,Tcw.type());
     Rwc.copyTo(Twc.rowRange(0,3).colRange(0,3));
     Ow.copyTo(Twc.rowRange(0,3).col(3));
+     
+    // center为相机坐标系（左目）下，立体相机中心的坐标
+    // 立体相机中心点坐标与左目相机坐标之间只是在x轴上相差mHalfBaseline,
+    // 因此可以看出，立体相机中两个摄像头的连线为x轴，正方向为左目相机指向右目相机 (齐次坐标)
     cv::Mat center = (cv::Mat_<float>(4,1) << mHalfBaseline, 0 , 0, 1);
+    
+    // 世界坐标系下，左目相机中心到立体相机中心的向量，方向由左目相机指向立体相机中心
     Cw = Twc*center;
 }
 
@@ -248,6 +279,7 @@ vector<KeyFrame*> KeyFrame::GetVectorCovisibleKeyFrames()
     return mvpOrderedConnectedKeyFrames;
 }
 
+//与此关键帧存在最佳共视关系的n个关键帧
 vector<KeyFrame*> KeyFrame::GetBestCovisibilityKeyFrames(const int &N)
 {
     unique_lock<mutex> lock(mMutexConnections);
@@ -385,6 +417,13 @@ MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
     return mvpMapPoints[idx];
 }
 
+/***********更新图连接的边****************
+ * 1. 首先获得该关键帧的所有MapPoint点，统计观测到这些3d点的每个关键帧与其它所有关键帧之间的共视程度
+ *    对每一个找到的关键帧，建立一条边，边的权重是该关键帧与当前关键帧公共3d点的个数。
+ * 2. 并且该权重必须大于一个阈值，如果没有超过该阈值的权重，那么就只保留权重最大的边（与其它关键帧的共视程度比较高）
+ * 3. 对这些连接按照权重从大到小进行排序，以方便将来的处理
+ *    更新完covisibility图之后，如果没有初始化过，则初始化为连接权重最大的边（与其它关键帧共视程度最高的那个关键帧），类似于最大生成树
+ */
 void KeyFrame::UpdateConnections(bool upParent)
 {
     map<KeyFrame*,int> KFcounter;
@@ -728,7 +767,8 @@ void KeyFrame::SetBadFlag()
         }
         //std::cout << "KF.BADFLAG-> Apply change to its parent" << std::endl;
 
-        if(mpParent){
+        if(mpParent)
+        {
             mpParent->EraseChild(this);
             mTcp = Tcw*mpParent->GetPoseInverse();
         }
@@ -836,6 +876,11 @@ cv::Mat KeyFrame::UnprojectStereo(int i)
         return cv::Mat();
 }
 
+
+// 评估当前关键帧场景深度，
+// q=2表示中值. 只是在单目情况下才会使用
+// 其实过程就是对当前关键帧下所有地图点的深度进行从小到大排序,
+// 返回距离头部其中1/q处的深度值作为当前场景的平均深度
 float KeyFrame::ComputeSceneMedianDepth(const int q)
 {
     vector<MapPoint*> vpMapPoints;
@@ -986,7 +1031,8 @@ void KeyFrame::PreSave(set<KeyFrame*>& spKF,set<MapPoint*>& spMP, set<GeometricC
     //cout << "KeyFrame: Imu Preintegrated stored" << endl;
 }
 
-void KeyFrame::PostLoad(map<long unsigned int, KeyFrame*>& mpKFid, map<long unsigned int, MapPoint*>& mpMPid, map<unsigned int, GeometricCamera*>& mpCamId){
+void KeyFrame::PostLoad(map<long unsigned int, KeyFrame*>& mpKFid, map<long unsigned int, MapPoint*>& mpMPid, map<unsigned int, GeometricCamera*>& mpCamId)
+{
     // Rebuild the empty variables
 
     // Pose

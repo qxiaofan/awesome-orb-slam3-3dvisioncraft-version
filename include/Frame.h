@@ -128,8 +128,8 @@ public:
     bool imuIsPreintegrated();
     void setIntegrated();
 
-    cv::Mat mRwc;
-    cv::Mat mOw;
+    cv::Mat mRwc;//当前相机坐标系到世界坐标系的旋转
+    cv::Mat mOw; //世界坐标系下当前相机坐标系的位置
 public:
     // Vocabulary used for relocalization.
     ORBVocabulary* mpORBvocabulary;
@@ -265,8 +265,8 @@ private:
     void AssignFeaturesToGrid();
 
     // Rotation, translation and camera center
-    cv::Mat mRcw;
-    cv::Mat mtcw;
+    cv::Mat mRcw; //世界坐标系到当前相机坐标系的旋转
+    cv::Mat mtcw; //相机坐标系下世界坐标系的位置
     //==mtwc
 
     bool mbImuPreintegrated;

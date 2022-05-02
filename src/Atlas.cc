@@ -26,13 +26,16 @@
 namespace ORB_SLAM3
 {
 
-Atlas::Atlas(){
+Atlas::Atlas()
+{
     mpCurrentMap = static_cast<Map*>(NULL);
 }
 
+//Atlas类构造函数
+//initKFid初始化关键帧的ID
 Atlas::Atlas(int initKFid): mnLastInitKFidMap(initKFid), mHasViewer(false)
 {
-    mpCurrentMap = static_cast<Map*>(NULL);
+    mpCurrentMap = static_cast<Map*>(NULL); //初始化
     CreateNewMap();
 }
 
@@ -55,25 +58,50 @@ Atlas::~Atlas()
     }
 }
 
+
+/***********************************创建新地图************************
+ * 函数中先判断当前地图mpCurrentMap是否存在，若存在，先存储当前地图再新建
+ * 如果当前地图不存在，直接新建地图
+ * *****************************************************************/
 void Atlas::CreateNewMap()
 {
     unique_lock<mutex> lock(mMutexAtlas);
     cout << "Creation of new map with id: " << Map::nNextId << endl;
-    if(mpCurrentMap){
+
+    //判断是否存在当前地图
+    if(mpCurrentMap)  //地图存在
+    {
         cout << "Exits current map " << endl;
+
+        //mspMaps表示地图集，判断地图集是否为空，且上一地图的关键帧ID小于当前地图的最大的ID
         if(!mspMaps.empty() && mnLastInitKFidMap < mpCurrentMap->GetMaxKFid())
+        {
+            //mnLastInitKFidMap存储的是当前地图创建时的第1个关键帧ID
+            //此处存储当前地图中最大关键帧的ID+1
             mnLastInitKFidMap = mpCurrentMap->GetMaxKFid()+1; //The init KF is the next of current maximum
 
+        }
+
+        //存储当前地图,设置mIsInUse = false;
         mpCurrentMap->SetStoredMap();
+
+        //存储当前地图的ID:mnID
         cout << "Saved map with ID: " << mpCurrentMap->GetId() << endl;
 
         //if(mHasViewer)
         //    mpViewer->AddMapToCreateThumbnail(mpCurrentMap);
     }
+
+    //创建新地图
+    
     cout << "Creation of new map with last KF id: " << mnLastInitKFidMap << endl;
 
+
+    //新建地图，声明Map类指针，传入创建当前地图时的第一个关键帧序号ID
     mpCurrentMap = new Map(mnLastInitKFidMap);
-    mpCurrentMap->SetCurrentMap();
+    //修改地图使用标记，即mIsInUse为TRUE
+    mpCurrentMap->SetCurrentMap(); 
+    //将创建的此地图添加进地图集
     mspMaps.insert(mpCurrentMap);
 }
 
@@ -81,7 +109,8 @@ void Atlas::ChangeMap(Map* pMap)
 {
     unique_lock<mutex> lock(mMutexAtlas);
     cout << "Chage to map with id: " << pMap->GetId() << endl;
-    if(mpCurrentMap){
+    if(mpCurrentMap)
+    {
         mpCurrentMap->SetStoredMap();
     }
 
@@ -261,7 +290,8 @@ bool Atlas::isImuInitialized()
 
 void Atlas::PreSave()
 {
-    if(mpCurrentMap){
+    if(mpCurrentMap)
+    {
         if(!mspMaps.empty() && mnLastInitKFidMap < mpCurrentMap->GetMaxKFid())
             mnLastInitKFidMap = mpCurrentMap->GetMaxKFid()+1; //The init KF is the next of current maximum
     }

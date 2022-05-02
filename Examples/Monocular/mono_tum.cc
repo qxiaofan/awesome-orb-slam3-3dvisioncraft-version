@@ -55,10 +55,6 @@ int main(int argc, char **argv)
     vector<float> vTimesTrack;
     vTimesTrack.resize(nImages);
 
-    cout << endl << "-------" << endl;
-    cout << "Start processing sequence ..." << endl;
-    cout << "Images in the sequence: " << nImages << endl << endl;
-
     // Main loop
     cv::Mat im;
     for(int ni=0; ni<nImages; ni++)
@@ -79,7 +75,7 @@ int main(int argc, char **argv)
 #else
         std::chrono::monotonic_clock::time_point t1 = std::chrono::monotonic_clock::now();
 #endif
-
+        
         // Pass the image to the SLAM system
         SLAM.TrackMonocular(im,tframe);
 
@@ -120,7 +116,7 @@ int main(int argc, char **argv)
 
     // Save camera trajectory
     SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
-
+    SLAM.SaveTrajectoryEuRoC("Trajectory.txt");
     return 0;
 }
 

@@ -26,7 +26,7 @@
 using namespace std;
 namespace ORB_SLAM3
 {
-
+// (cv::Mat& k, float sigma = 1.0, int iterations = 200)
 TwoViewReconstruction::TwoViewReconstruction(cv::Mat& K, float sigma, int iterations)
 {
     mK = K.clone();
@@ -36,20 +36,37 @@ TwoViewReconstruction::TwoViewReconstruction(cv::Mat& K, float sigma, int iterat
     mMaxIterations = iterations;
 }
 
-bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint>& vKeys1, const std::vector<cv::KeyPoint>& vKeys2, const vector<int> &vMatches12,
-                                        cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated)
+
+
+/**************************特征点三角化构造地图点*******************
+ * 输入：vKeys1：初始帧特征点
+ *      vKeys2：当前帧特征点
+ *      vMatches12：初始图像帧到当前图像帧的匹配
+ *      R21、t21：初始图像帧到当前图像帧的位姿，即世界坐标系到当前图像坐标系
+ *               的位姿变换，输入为空，等待求解输出
+ *      vP3D：std::vector<cv::Point3f>待输出  进行三角化得到的空间点集合
+ *      vbTriangulated：vector<bool> vbTriangulated，等待输出，表示特征点
+ *                      是否进行了三角化
+****************************************************************/
+bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint>& vKeys1, 
+                                        const std::vector<cv::KeyPoint>& vKeys2,
+                                        const vector<int> &vMatches12,
+                                        cv::Mat &R21, cv::Mat &t21, 
+                                        vector<cv::Point3f> &vP3D, 
+                                        vector<bool> &vbTriangulated)
 {
     mvKeys1.clear();
     mvKeys2.clear();
 
-    mvKeys1 = vKeys1;
-    mvKeys2 = vKeys2;
+    mvKeys1 = vKeys1;  //初始图像帧的特征点
+    mvKeys2 = vKeys2;  //当前图像帧的特征点
 
     // Fill structures with current keypoints and matches with reference frame
     // Reference Frame: 1, Current Frame: 2
-    mvMatches12.clear();
-    mvMatches12.reserve(mvKeys2.size());
-    mvbMatched1.resize(mvKeys1.size());
+
+    mvMatches12.clear();  //类型：Match类向量,typedef std::pair<int,int> Match;
+    mvMatches12.reserve(mvKeys2.size());  //存储匹配成功的特征点，<参考帧特征点，当前帧特征点>
+    mvbMatched1.resize(mvKeys1.size());  //bool类向量，存储参考图像帧中的特征点的匹配是否成功
     for(size_t i=0, iend=vMatches12.size();i<iend; i++)
     {
         if(vMatches12[i]>=0)
@@ -61,52 +78,78 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint>& vKeys1,
             mvbMatched1[i]=false;
     }
 
+    //匹配成功的特征点对数
     const int N = mvMatches12.size();
 
     // Indices for minimum set selection
+    // 存储所有匹配成功的特征点对的索引
     vector<size_t> vAllIndices;
     vAllIndices.reserve(N);
-    vector<size_t> vAvailableIndices;
-
     for(int i=0; i<N; i++)
     {
         vAllIndices.push_back(i);
     }
+    
+    
+    vector<size_t> vAvailableIndices;
 
     // Generate sets of 8 points for each RANSAC iteration
+    // 为每次RANSAC迭代生成8个特征点
+    // RANSAC最大迭代次数：200
+    //mvSets：200列向量，每个向量中存储vector<size_t>类型的值，每个vector<size_t>是8个向量，初始化为0
     mvSets = vector< vector<size_t> >(mMaxIterations,vector<size_t>(8,0));
 
+    // 按照一定规律产生随机种子
     DUtils::Random::SeedRandOnce(0);
 
+    // 遍历200次
     for(int it=0; it<mMaxIterations; it++)
     {
+        //每次开始迭代，假定所有的特征点对可用，表示可用特征点对的索引ID
         vAvailableIndices = vAllIndices;
 
+        // 选择最小的样本集，使用8点法
         // Select a minimum set
         for(size_t j=0; j<8; j++)
         {
+            //随机生成一个特征点对的索引ID，范围在0到N-1中
             int randi = DUtils::Random::RandomInt(0,vAvailableIndices.size()-1);
+            // idx索引被选中
             int idx = vAvailableIndices[randi];
 
+            // 将本次迭代选中的点对索引添加进nvSets中
             mvSets[it][j] = idx;
 
+            // 删除这个选中的索引，避免重复选择
             vAvailableIndices[randi] = vAvailableIndices.back();
             vAvailableIndices.pop_back();
         }
     }
 
     // Launch threads to compute in parallel a fundamental matrix and a homography
+    // vbMatchesInliersH，vbMatchesInliersF记录当前值是不是有效的
     vector<bool> vbMatchesInliersH, vbMatchesInliersF;
-    float SH, SF;
+    float SH, SF;  //计算H阵和F阵的得分
     cv::Mat H, F;
 
-    thread threadH(&TwoViewReconstruction::FindHomography,this,ref(vbMatchesInliersH), ref(SH), ref(H));
-    thread threadF(&TwoViewReconstruction::FindFundamental,this,ref(vbMatchesInliersF), ref(SF), ref(F));
+    // 加速计算，开启线程
+    thread threadH(&TwoViewReconstruction::FindHomography,   //线程主函数
+                   this,
+                   ref(vbMatchesInliersH),   //输出，特征点对的inlier标记
+                   ref(SH),    //输出，单应矩阵的RANSAC评分
+                   ref(H));    //输出单应矩阵的计算结果
+
+    //基础矩阵               
+    thread threadF(&TwoViewReconstruction::FindFundamental,
+                  this,
+                  ref(vbMatchesInliersF), 
+                  ref(SF), 
+                  ref(F));
 
     // Wait until both threads have finished
     threadH.join();
     threadF.join();
-
+   
     // Compute ratio of scores
     if(SH+SF == 0.f) return false;
     float RH = SH/(SH+SF);
@@ -114,8 +157,9 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint>& vKeys1,
     float minParallax = 1.0;
 
     // Try to reconstruct from homography or fundamental depending on the ratio (0.40-0.45)
+    //根据得分比例，选取某个模型
     if(RH>0.50) // if(RH>0.40)
-    {
+    {   
         //cout << "Initialization from Homography" << endl;
         return ReconstructH(vbMatchesInliersH,H, mK,R21,t21,vP3D,vbTriangulated,minParallax,50);
     }
@@ -126,30 +170,54 @@ bool TwoViewReconstruction::Reconstruct(const std::vector<cv::KeyPoint>& vKeys1,
     }
 }
 
-void TwoViewReconstruction::FindHomography(vector<bool> &vbMatchesInliers, float &score, cv::Mat &H21)
+
+
+/*********************单应矩阵计算******************************
+ * vbMatchesInliers：标记是否是外点
+ * score:RANSAC得分
+ * H21：结果
+**************************************************************/
+void TwoViewReconstruction::FindHomography(vector<bool> &vbMatchesInliers, 
+                                          float &score, 
+                                          cv::Mat &H21)
 {
+
+
     // Number of putative matches
+    // mvMatches12：存储匹配成功的特征点，<参考帧特征点，当前帧特征点>
+    // N：匹配成功的点对个数
     const int N = mvMatches12.size();
 
+    // 归一化坐标，用矩阵的形式表示
     // Normalize coordinates
-    vector<cv::Point2f> vPn1, vPn2;
-    cv::Mat T1, T2;
+    // |sX  0  -meanx*sX|
+    // |0   sY -meany*sY|
+    // |0   0      1    |
+    vector<cv::Point2f> vPn1, vPn2;  //归一化特征点坐标
+    cv::Mat T1, T2;   //归一化特征点的变换矩阵
     Normalize(mvKeys1,vPn1, T1);
     Normalize(mvKeys2,vPn2, T2);
     cv::Mat T2inv = T2.inv();
 
+
     // Best Results variables
-    score = 0.0;
-    vbMatchesInliers = vector<bool>(N,false);
+    score = 0.0;    //最佳分数
+    vbMatchesInliers = vector<bool>(N,false);  //初始化，容量为特征点对的个数，初始化为false
 
     // Iteration variables
+    //某次迭代中参考图像帧的特征点坐标
     vector<cv::Point2f> vPn1i(8);
+    //某次迭代中当前图像帧的特征点坐标
     vector<cv::Point2f> vPn2i(8);
+    // 某次迭代中计算出的H阵
     cv::Mat H21i, H12i;
+
+    // 每次RANSAC记录Inlier得分
     vector<bool> vbCurrentInliers(N,false);
     float currentScore;
 
     // Perform all RANSAC iterations and save the solution with highest score
+    //开始迭代,计算归一化后的H阵，
     for(int it=0; it<mMaxIterations; it++)
     {
         // Select a minimum set
@@ -157,14 +225,19 @@ void TwoViewReconstruction::FindHomography(vector<bool> &vbMatchesInliers, float
         {
             int idx = mvSets[it][j];
 
-            vPn1i[j] = vPn1[mvMatches12[idx].first];
-            vPn2i[j] = vPn2[mvMatches12[idx].second];
+            vPn1i[j] = vPn1[mvMatches12[idx].first];  //参考帧的归一化特征点
+            vPn2i[j] = vPn2[mvMatches12[idx].second]; //当前帧的归一化特征点
+
+
+            
         }
 
-        cv::Mat Hn = ComputeH21(vPn1i,vPn2i);
+        cv::Mat Hn = ComputeH21(vPn1i,vPn2i);  //利用8个点计算单应矩阵
+        //恢复归一化前的样子
         H21i = T2inv*Hn*T1;
         H12i = H21i.inv();
 
+        //计算得分，选择最好的模型
         currentScore = CheckHomography(H21i, H12i, vbCurrentInliers, mSigma);
 
         if(currentScore>score)
@@ -343,21 +416,23 @@ float TwoViewReconstruction::CheckHomography(const cv::Mat &H21, const cv::Mat &
     {
         bool bIn = true;
 
-        const cv::KeyPoint &kp1 = mvKeys1[mvMatches12[i].first];
-        const cv::KeyPoint &kp2 = mvKeys2[mvMatches12[i].second];
+        const cv::KeyPoint &kp1 = mvKeys1[mvMatches12[i].first];  //参考图像帧的特征点
+        const cv::KeyPoint &kp2 = mvKeys2[mvMatches12[i].second];  //当前图像帧的特征
 
-        const float u1 = kp1.pt.x;
+        const float u1 = kp1.pt.x; //参考图像帧的特征点坐标
         const float v1 = kp1.pt.y;
-        const float u2 = kp2.pt.x;
+        const float u2 = kp2.pt.x;  //当前图像帧的特征点坐标
         const float v2 = kp2.pt.y;
-
+        
+        // p2=H21*p1
         // Reprojection error in first image
         // x2in1 = H12*x2
-
+        //当前图像帧的特征点投影至参考图像
         const float w2in1inv = 1.0/(h31inv*u2+h32inv*v2+h33inv);
         const float u2in1 = (h11inv*u2+h12inv*v2+h13inv)*w2in1inv;
         const float v2in1 = (h21inv*u2+h22inv*v2+h23inv)*w2in1inv;
 
+        // 投影距离
         const float squareDist1 = (u1-u2in1)*(u1-u2in1)+(v1-v2in1)*(v1-v2in1);
 
         const float chiSquare1 = squareDist1*invSigmaSquare;
@@ -369,7 +444,7 @@ float TwoViewReconstruction::CheckHomography(const cv::Mat &H21, const cv::Mat &
 
         // Reprojection error in second image
         // x1in2 = H21*x1
-
+        //参考图像帧的特征点投影至当前图像
         const float w1in2inv = 1.0/(h31*u1+h32*v1+h33);
         const float u1in2 = (h11*u1+h12*v1+h13)*w1in2inv;
         const float v1in2 = (h21*u1+h22*v1+h23)*w1in2inv;
@@ -475,17 +550,22 @@ float TwoViewReconstruction::CheckFundamental(const cv::Mat &F21, vector<bool> &
 bool TwoViewReconstruction::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv::Mat &K,
                             cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated)
 {
+    //统计当前内点个数
     int N=0;
     for(size_t i=0, iend = vbMatchesInliers.size() ; i<iend; i++)
         if(vbMatchesInliers[i])
             N++;
 
+    
     // Compute Essential Matrix from Fundamental Matrix
+    // F = K^-T*E*K^-1
+    // E = K^T*F*K
     cv::Mat E21 = K.t()*F21*K;
 
     cv::Mat R1, R2, t;
 
     // Recover the 4 motion hypotheses
+    //SVD分解得到四种可能性
     DecomposeE(E21,R1,R2,t);  
 
     cv::Mat t1=t;

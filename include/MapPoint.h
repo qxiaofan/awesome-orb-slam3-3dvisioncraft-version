@@ -249,7 +249,11 @@ protected:
      long unsigned int mBackupRefKFId;
 
      // Tracking counters
+     //mnVisible指的是此地图点在某些图像帧的视野范围内，被这些图像帧所观测到，
+     //但不一定和这些图像帧中的特征点发生匹配
      int mnVisible;
+
+     //mnFound指的是能发生匹配且找到此地图点的图像帧个数
      int mnFound;
 
      // Bad flag (we do not currently erase MapPoint from memory)

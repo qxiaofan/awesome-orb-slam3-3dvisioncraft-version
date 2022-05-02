@@ -1,23 +1,3 @@
-/**
-* This file is part of ORB-SLAM3
-*
-* Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
-* Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
-*
-* ORB-SLAM3 is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
-* License as published by the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM3 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
-* the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License along with ORB-SLAM3.
-* If not, see <http://www.gnu.org/licenses/>.
-*/
-
-
-
 #include "System.h"
 #include "Converter.h"
 #include <thread>
@@ -38,18 +18,37 @@ namespace ORB_SLAM3
 
 Verbose::eLevel Verbose::th = Verbose::VERBOSITY_NORMAL;
 
+//初始化SLAM系统，开启Local Mapping, Loop Closing and Viewer线程
+/******************************************************************
+    strVocFile：词袋文件的位置
+    strSettingsFile：标定文件的位置
+    sensor：传感器类型
+    bUseViewer：是否使用可视化界面（默认使用）
+    initFr：初始图像帧的ID，默认为0
+    strSequence：初始化为空string
+    strLoadingFile：初始化为空string，代码中没使用此参数
+*******************************************************************/
+/*************初始化************************************************
+    mSensor：单目-IMU
+    mpViewer：Viewer类指针初始化
+    mbReset: 是否重置，初始化为false，默认不重置
+    mbResetActiveMap ：是否重新设置ActiveMap，重置活动地图,初始化为false，默认不重置
+    mbActivateLocalizationMode：是否开启局部定位模式，true系统是定位模式，只定位不建图,初始化为false
+    mbDeactivateLocalizationMode：是否释放局部地图,true表示释放局部地图，初始化为false
+*******************************************************************/
 System::System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor,
                const bool bUseViewer, const int initFr, const string &strSequence, const string &strLoadingFile):
-    mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false), mbResetActiveMap(false),
-    mbActivateLocalizationMode(false), mbDeactivateLocalizationMode(false)
+    mSensor(sensor), mpViewer(static_cast<Viewer*>(NULL)), mbReset(false), 
+    mbResetActiveMap(false),mbActivateLocalizationMode(false), 
+    mbDeactivateLocalizationMode(false)
 {
     // Output welcome message
-    cout << endl <<
-    "ORB-SLAM3 Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza." << endl <<
-    "ORB-SLAM2 Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel and Juan D. Tardós, University of Zaragoza." << endl <<
-    "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
-    "This is free software, and you are welcome to redistribute it" << endl <<
-    "under certain conditions. See LICENSE.txt." << endl << endl;
+    // cout << endl <<
+    // "ORB-SLAM3 Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza." << endl <<
+    // "ORB-SLAM2 Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel and Juan D. Tardós, University of Zaragoza." << endl <<
+    // "This program comes with ABSOLUTELY NO WARRANTY;" << endl  <<
+    // "This is free software, and you are welcome to redistribute it" << endl <<
+    // "under certain conditions. See LICENSE.txt." << endl << endl;
 
     cout << "Input sensor was set to: ";
 
@@ -65,6 +64,7 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         cout << "Stereo-Inertial" << endl;
 
     //Check settings file
+    //从yaml文件中读取相机内参、帧速、基线
     cv::FileStorage fsSettings(strSettingsFile.c_str(), cv::FileStorage::READ);
     if(!fsSettings.isOpened())
     {
@@ -72,15 +72,16 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
        exit(-1);
     }
 
-    bool loadedAtlas = false;
 
-    //----
+    bool loadedAtlas = false;  //是否加载Atlas，不加载
+
+
     //Load ORB Vocabulary
+    //加载词袋模型
     cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
-
-    mpVocabulary = new ORBVocabulary();
-    bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
-    if(!bVocLoad)
+    mpVocabulary = new ORBVocabulary();  //ORBVocabulary类指针，用于地点识别和特征匹配的词袋模型
+    bool bVocLoad = mpVocabulary->loadFromBinaryFile(strVocFile); //从词袋文件中加载词袋
+    if(!bVocLoad)//如果没加载成功词袋
     {
         cerr << "Wrong path to vocabulary. " << endl;
         cerr << "Falied to open at: " << strVocFile << endl;
@@ -88,98 +89,55 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
     }
     cout << "Vocabulary loaded!" << endl << endl;
 
+
     //Create KeyFrame Database
+    //创建关键帧数据库
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
 
     //Create the Atlas
-    //mpMap = new Map();
+    //创建Atlas ,初始化关键帧的id为0， 构造函数中创建新地图
     mpAtlas = new Atlas(0);
-    //----
 
-    /*if(strLoadingFile.empty())
-    {
-        //Load ORB Vocabulary
-        cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
-
-        mpVocabulary = new ORBVocabulary();
-        bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
-        if(!bVocLoad)
-        {
-            cerr << "Wrong path to vocabulary. " << endl;
-            cerr << "Falied to open at: " << strVocFile << endl;
-            exit(-1);
-        }
-        cout << "Vocabulary loaded!" << endl << endl;
-
-        //Create KeyFrame Database
-        mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
-
-        //Create the Atlas
-        //mpMap = new Map();
-        mpAtlas = new Atlas(0);
-    }
-    else
-    {
-        //Load ORB Vocabulary
-        cout << endl << "Loading ORB Vocabulary. This could take a while..." << endl;
-
-        mpVocabulary = new ORBVocabulary();
-        bool bVocLoad = mpVocabulary->loadFromTextFile(strVocFile);
-        if(!bVocLoad)
-        {
-            cerr << "Wrong path to vocabulary. " << endl;
-            cerr << "Falied to open at: " << strVocFile << endl;
-            exit(-1);
-        }
-        cout << "Vocabulary loaded!" << endl << endl;
-
-        cout << "Load File" << endl;
-
-        // Load the file with an earlier session
-        //clock_t start = clock();
-        bool isRead = LoadAtlas(strLoadingFile,BINARY_FILE);
-
-        if(!isRead)
-        {
-            cout << "Error to load the file, please try with other session file or vocabulary file" << endl;
-            exit(-1);
-        }
-        mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary);
-
-        mpAtlas->SetKeyFrameDababase(mpKeyFrameDatabase);
-        mpAtlas->SetORBVocabulary(mpVocabulary);
-        mpAtlas->PostLoad();
-        //cout << "KF in DB: " << mpKeyFrameDatabase->mnNumKFs << "; words: " << mpKeyFrameDatabase->mnNumWords << endl;
-
-        loadedAtlas = true;
-
-        mpAtlas->CreateNewMap();
-
-        //clock_t timeElapsed = clock() - start;
-        //unsigned msElapsed = timeElapsed / (CLOCKS_PER_SEC / 1000);
-        //cout << "Binary file read in " << msElapsed << " ms" << endl;
-
-        //usleep(10*1000*1000);
-    }*/
-
-
+    //根据传感器类型，设置Atlas中的传感器类型,设置Map中的传感器类型
     if (mSensor==IMU_STEREO || mSensor==IMU_MONOCULAR)
         mpAtlas->SetInertialSensor();
 
-    //Create Drawers. These are used by the Viewer
-    mpFrameDrawer = new FrameDrawer(mpAtlas);
-    mpMapDrawer = new MapDrawer(mpAtlas, strSettingsFile);
 
+    //Create Drawers. These are used by the Viewer
+    //创建两个显示窗口
+    mpFrameDrawer = new FrameDrawer(mpAtlas);
+    mpMapDrawer = new MapDrawer(mpAtlas, strSettingsFile); //根据yaml文件里的参数创建画布
+
+    
     //Initialize the Tracking thread
-    //(it will live in the main thread of execution, the one that called this constructor)
-    cout << "Seq. Name: " << strSequence << endl;
+    //初始化Tracking线程
+    /********************************************************
+        this： System类当前SLAM系统 
+        mpVocabulary: 词袋指针（ORBVocabulary类指针）
+        mpFrameDrawer、mpMapDrawer:创建的两个显示窗口 FrameDrawer类指针，MapDrawer类指针
+        mpAtlas：地图类指针 
+        mpKeyFrameDatabase:关键帧数据库类指针  
+        strSettingsFile：.yaml文件路径
+        mSensor：传感器类型 = 3
+        strSequence
+    ********************************************************/
     mpTracker = new Tracking(this, mpVocabulary, mpFrameDrawer, mpMapDrawer,
                              mpAtlas, mpKeyFrameDatabase, strSettingsFile, mSensor, strSequence);
 
+    cout<<"ENDK"<<endl;
     //Initialize the Local Mapping thread and launch
+    //初始化Local Mapping线程并启动
+    /********************************************************
+        this： System类当前SLAM系统 
+        mpAtlas：Atlas类指针
+        mSensor:传感器类型单目IMU
+        strSequence
+    ********************************************************/
     mpLocalMapper = new LocalMapping(this, mpAtlas, mSensor==MONOCULAR || mSensor==IMU_MONOCULAR, mSensor==IMU_MONOCULAR || mSensor==IMU_STEREO, strSequence);
+    //主线程函数LocalMapping::Run
     mptLocalMapping = new thread(&ORB_SLAM3::LocalMapping::Run,mpLocalMapper);
-    mpLocalMapper->mInitFr = initFr;
+    
+    mpLocalMapper->mInitFr = initFr;//设置初始帧的ID，初始为0
     mpLocalMapper->mThFarPoints = fsSettings["thFarPoints"];
     if(mpLocalMapper->mThFarPoints!=0)
     {
@@ -190,22 +148,41 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
         mpLocalMapper->mbFarPoints = false;
 
     //Initialize the Loop Closing thread and launch
-    // mSensor!=MONOCULAR && mSensor!=IMU_MONOCULAR
+    //初始化loop closing 线程并启动
+    /********************************************************
+        mpAtlas：Atlas类指针
+        mpKeyFrameDatabase：KeyFrameDatabase类型指针
+        mpVocabulary：ORBVocabulary类指针
+        mSensor!=MONOCULAR :输出为true
+    ********************************************************/
     mpLoopCloser = new LoopClosing(mpAtlas, mpKeyFrameDatabase, mpVocabulary, mSensor!=MONOCULAR); // mSensor!=MONOCULAR);
+    //主线程函数LoopClosing::Run
     mptLoopClosing = new thread(&ORB_SLAM3::LoopClosing::Run, mpLoopCloser);
 
-    //Initialize the Viewer thread and launch
-    if(bUseViewer)
-    {
+    
+    
+    if(bUseViewer)//初始化为true且在main程序中输入为true
+    {      
+        //Initialize the Viewer thread and launch
+        //初始化Viewer线程并启动
+        /********************************************************
+        this： System类当前SLAM系统
+        mpFrameDrawer：FrameDrawer类指针
+        mpMapDrawer:MapDrawer类指针
+        mpTracker：Tracking线程指针
+        strSettingsFile：标定文件
+        ********************************************************/
         mpViewer = new Viewer(this, mpFrameDrawer,mpMapDrawer,mpTracker,strSettingsFile);
+        //主线程函数Viewer::Run
         mptViewer = new thread(&Viewer::Run, mpViewer);
-        mpTracker->SetViewer(mpViewer);
-        mpLoopCloser->mpViewer = mpViewer;
+        mpTracker->SetViewer(mpViewer);//设置Tracking线程中的mpViewer为新构造的mpViewer
+        mpLoopCloser->mpViewer = mpViewer;//设置mpLoopCloser线程中的mpViewer为新构造的mpViewer
         mpViewer->both = mpFrameDrawer->both;
     }
 
     //Set pointers between threads
-    mpTracker->SetLocalMapper(mpLocalMapper);
+    //设置线程之间的相互指针
+    mpTracker->SetLocalMapper(mpLocalMapper); 
     mpTracker->SetLoopClosing(mpLoopCloser);
 
     mpLocalMapper->SetTracker(mpTracker);
@@ -343,20 +320,29 @@ cv::Mat System::TrackRGBD(const cv::Mat &im, const cv::Mat &depthmap, const doub
     return Tcw;
 }
 
+//单目跟踪主程序
+/********************************************
+    im：当前图像帧  
+    timestamp：当前图像帧的时间戳
+    vImuMeas：当前图像帧和上一图像帧之间的IMU测量量，IMU::Point类型的，包括加速度，角速度，时间戳
+    filename: 空string
+********************************************/
 cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, const vector<IMU::Point>& vImuMeas, string filename)
-{
+{   
     if(mSensor!=MONOCULAR && mSensor!=IMU_MONOCULAR)
     {
-        cerr << "ERROR: you called TrackMonocular but input sensor was not set to Monocular nor Monocular-Inertial." << endl;
+        cout << "ERROR: you called TrackMonocular but input sensor was not set to Monocular nor Monocular-Inertial." << endl;
         exit(-1);
     }
 
     // Check mode change
+    //检查定位模式状态
     {
         unique_lock<mutex> lock(mMutexMode);
-        if(mbActivateLocalizationMode)
-        {
-            mpLocalMapper->RequestStop();
+        //mbActiveLocalizationMode在系统构建时初始化为了false，即建图加定位模式
+        if(mbActivateLocalizationMode) 
+        {   //如果是纯定位不建图模式，执行这部分
+            mpLocalMapper->RequestStop();//请求Local Mapping线程停止建图，只进行定位
 
             // Wait until Local Mapping has effectively stopped
             while(!mpLocalMapper->isStopped())
@@ -364,38 +350,59 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, const
                 usleep(1000);
             }
 
-            mpTracker->InformOnlyTracking(true);
-            mbActivateLocalizationMode = false;
+            mpTracker->InformOnlyTracking(true);//Tracking线程只进行定位
+            mbActivateLocalizationMode = false; //默认定位状态设置为false，默认同时进行建图
         }
+        //mbDeactivateLocalizationMode=1系统是定位加建图模式
         if(mbDeactivateLocalizationMode)
-        {
+        {   //如果是不建图，只定位
             mpTracker->InformOnlyTracking(false);
-            mpLocalMapper->Release();
+            mpLocalMapper->Release(); //打开建图
             mbDeactivateLocalizationMode = false;
         }
     }
 
     // Check reset
+    //检查系统重置状态 检查是否重置Tracking线程或ActiveMap
     {
         unique_lock<mutex> lock(mMutexReset);
+        //mbReset为是否重置的标志位，初始化为false，默认不重置
         if(mbReset)
         {
+            //mbReset=TRUE,重置Tracking线程
             mpTracker->Reset();
             mbReset = false;
             mbResetActiveMap = false;
         }
-        else if(mbResetActiveMap)
+        else if(mbResetActiveMap) //mbResetActiveMap是是否重置活动地图的标志位，初始化为false，默认不重置
         {
-            cout << "SYSTEM-> Reseting active map in monocular case" << endl;
+            //mbResetActiveMap=true,重置ActiveMap地图
+            //cout << "SYSTEM-> Reseting active map in monocular case" << endl;
             mpTracker->ResetActiveMap();
             mbResetActiveMap = false;
         }
     }
 
-    if (mSensor == System::IMU_MONOCULAR)
-        for(size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
-            mpTracker->GrabImuData(vImuMeas[i_imu]);
 
+    //单目IMU，加载IMU数据
+    if (mSensor == System::IMU_MONOCULAR)
+    {    
+        /*********************************
+            vImuMeas是ORB_SLAM3::IMU::Point类型的vector向量
+            cv::Point3f类型的加速度a
+            cv::Point3f类型的角速度w
+            double 类型的时间戳t
+        ***********************************/
+        for(size_t i_imu = 0; i_imu < vImuMeas.size(); i_imu++)
+        {
+            //将IMU值存入Tracking中的mlQueueImuData的list
+            mpTracker->GrabImuData(vImuMeas[i_imu]);
+        }    
+
+    }    
+
+
+    //Tracking线程计算当前帧的位姿
     cv::Mat Tcw = mpTracker->GrabImageMonocular(im,timestamp,filename);
 
     /*if(mpLocalMapper->mbNewInit)
@@ -416,11 +423,12 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, const
         }
     }*/
 
+    //更行状态和特征点、地图点
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
     mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-
+    //cout<<endl<<"========================================================="<<endl;
     return Tcw;
 }
 
@@ -692,7 +700,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
             cv::Mat Rwb = Tbw.rowRange(0,3).colRange(0,3).t();
             cv::Mat twb = -Rwb*Tbw.rowRange(0,3).col(3);
             vector<float> q = Converter::toQuaternion(Rwb);
-            f << setprecision(6) << 1e9*(*lT) << " " <<  setprecision(9) << twb.at<float>(0) << " " << twb.at<float>(1) << " " << twb.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
+            f << setprecision(6) << (*lT) << " " <<  setprecision(9) << twb.at<float>(0) << " " << twb.at<float>(1) << " " << twb.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
         }
         else
         {
@@ -700,7 +708,7 @@ void System::SaveTrajectoryEuRoC(const string &filename)
             cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t();
             cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
             vector<float> q = Converter::toQuaternion(Rwc);
-            f << setprecision(6) << 1e9*(*lT) << " " <<  setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
+            f << setprecision(6) << (*lT) << " " <<  setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
         }
 
         // cout << "5" << endl;
