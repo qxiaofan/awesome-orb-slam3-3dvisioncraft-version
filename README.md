@@ -8,6 +8,16 @@
 
 
 
+orb-slam3系列视频课程，学习地址->[前往](https://www.3dcver.com/detail/p_625d6caae4b09dda125cab85/6)
+
+1、[ORB-SLAM3源码与原理彻底解析-第一讲-绪论](https://www.3dcver.com/detail/v_6241bfd9e4b0f7cb7c77e870/3)                
+
+1、[ORB-SLAM3系列之匹配算法（一）](https://www.3dcver.com/detail/l_62503788e4b04e8d902d54b2/4)
+
+2、....持续更新中...
+
+
+
 ### 说明
 
 Two ROS interfaces Mono_inertial and Stereo_inertial were added to the ORB-SLAM3. Modified the loading vocabulary in a faster binary way.
