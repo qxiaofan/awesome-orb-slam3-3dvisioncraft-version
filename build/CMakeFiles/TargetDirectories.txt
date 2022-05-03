@@ -1,8 +1,0 @@
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/build/CMakeFiles/rebuild_cache.dir
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/build/CMakeFiles/edit_cache.dir
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/build/CMakeFiles/ORB_SLAM3.dir
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/build/CMakeFiles/mono_inertial_euroc.dir
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/build/CMakeFiles/mono_tum.dir
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/build/Thirdparty/g2o/CMakeFiles/rebuild_cache.dir
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/build/Thirdparty/g2o/CMakeFiles/g2o.dir
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/build/Thirdparty/g2o/CMakeFiles/edit_cache.dir
