@@ -1,3 +1,0 @@
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/Thirdparty/DBoW2/build/CMakeFiles/rebuild_cache.dir
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/Thirdparty/DBoW2/build/CMakeFiles/DBoW2.dir
-/home/yong/workspace/02-github-projects/awesome-orb-slam3-3dvisioncraft-version/Thirdparty/DBoW2/build/CMakeFiles/edit_cache.dir
