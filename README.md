@@ -1,24 +1,14 @@
-# ORB_SLAM3_vision3d
-
-本仓库主要folked from  [ORB-SLAM3](https://github.com/UZ-SLAMLab/ORB_SLAM3)，主要对其进行代码注释，与bug修复。
-
-### 主要参与的工作人员
+# awesome-orb-slam3-3dvisioncraft-version
 
 本工程主要由公众号「3D视觉工坊」的嘉宾宏宇博士完成。
 
-作者介绍：
+**作者介绍：**
 
 魏宏宇博士，东南大学博三在读，在IEEE Sensors Journal等期刊发表论文2篇，精通视觉惯性SLAM。「3D视觉从入门到精通」知识星球特邀嘉宾。主讲课程如下：
 
-orb-slam3系列视频课程，学习地址->[前往](https://www.3dcver.com/detail/p_625d6caae4b09dda125cab85/6)
+orb-slam3系列视频课程，学习地址->[前往](https://mp.weixin.qq.com/s/ZwvhDOJeCknGChVoSbPdmg)
 
-1、[ORB-SLAM3源码与原理彻底解析-第一讲-绪论](https://www.3dcver.com/detail/v_6241bfd9e4b0f7cb7c77e870/3)                
-
-1、[ORB-SLAM3系列之匹配算法（一）](https://www.3dcver.com/detail/l_62503788e4b04e8d902d54b2/4)
-
-2、....持续更新中...
-
-
+![](imgs\course.jpg)
 
 ### 说明
 
@@ -34,11 +24,23 @@ Stereo_inertial: rosrun ORB_SLAM3 Stereo_inertial /YOUR_PATH/ORBvoc.bin /YOUR_PA
 
 
 
-### Other things
+## 加群
 
-由于我们在学习过程中，难免会借鉴参考其他优秀的博客与工程，如有不当之处，还请批评指正。
+目前工坊已经建立了3D视觉方向多个社群，包括SLAM、工业3D视觉、自动驾驶方向。
 
-也希望更多的小伙伴能够加入我们的学习队伍，联系邮箱：vision3d@yeah.net
+细分群包括：
+
+[**工业方向**]三维点云、结构光、机械臂、缺陷检测、三维测量、TOF、相机标定、综合群；
+
+[**SLAM方向**]多传感器融合、ORB-SLAM、激光SLAM、机器人导航、RTK|GPS|UWB等传感器交流群、SLAM综合讨论群；
+
+[**自动驾驶方向**]深度估计、Transformer、毫米波|激光雷达|视觉摄像头传感器讨论群、多传感器标定、自动驾驶综合群等。
+
+[**三维重建方向**]NeRF、colmap、OpenMVS等。
+
+除了这些，还有求职、硬件选型、视觉产品落地等交流群。
+
+大家可以添加小助理微信: **dddvisiona**，备注：加群+方向+学校|公司, 小助理会拉你入群。
 
 
 
