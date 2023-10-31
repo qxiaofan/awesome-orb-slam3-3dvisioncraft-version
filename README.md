@@ -8,7 +8,7 @@
 
 orb-slam3系列视频课程，学习地址->[前往](https://mp.weixin.qq.com/s/ZwvhDOJeCknGChVoSbPdmg)
 
-![](imgs\course.jpg)
+![](imgs/course.jpg)
 
 ### 说明
 
